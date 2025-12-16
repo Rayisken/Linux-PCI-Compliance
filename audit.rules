@@ -1,0 +1,92 @@
+## First rule - delete all
+-D
+
+## Increase the buffers to survive stress events.
+## Make this bigger for busy systems
+-b 8192
+
+## This determine how long to wait in burst of events
+--backlog_wait_time 60000
+
+## Set failure mode to syslog
+-f 1
+
+# Monitor file creation
+-a always,exit -F arch=b64 -S creat -S open -S openat -S mkdir -S mknod -S truncate -S ftruncate -F auid>=1000 -F auid!=4294967295 -k file-create
+
+# Monitor file deletion
+-a always,exit -F arch=b64 -S unlink -S unlinkat -S rmdir -F auid>=1000 -F auid!=4294967295 -k file-delete
+
+# Log all commands run via execve
+-a always,exit -F arch=b64 -S execve -k exec_log
+-a always,exit -F arch=b32 -S execve -k exec_log
+
+# Monitor changes to /etc/passwd and /etc/shadow
+-w /etc/passwd -p wa -k passwd_changes
+-w /etc/shadow -p wa -k shadow_changes
+
+# Monitor sudo usage
+-w /usr/bin/sudo -p x -k sudo_usage
+
+# Monitor changes to sudoers file
+-w /etc/sudoers -p wa -k sudoers_changes
+
+# Monitor changes to sudoers.d directory
+-w /etc/sudoers.d/ -p wa -k sudoers_changes
+
+# Monitor login/logout events
+-w /var/log/faillog -p wa -k login_failures
+-w /var/log/lastlog -p wa -k login_success
+
+# Monitor user and group modifications
+-w /etc/group -p wa -k group_changes
+-w /etc/gshadow -p wa -k gshadow_changes
+
+# Monitor SSH configuration and access
+-w /etc/ssh/sshd_config -p wa -k ssh_config
+-w /var/log/auth.log -p wa -k auth_logs
+
+# Monitor cron jobs
+-w /etc/crontab -p wa -k cron_jobs
+-w /etc/cron.d/ -p wa -k cron_jobs
+
+# Monitor system binaries
+-w /bin/ -p wa -k system_bins
+-w /sbin/ -p wa -k system_bins
+-w /usr/bin/ -p wa -k system_bins
+-w /usr/sbin/ -p wa -k system_bins
+
+# Audit user logins
+-a always,exit -F arch=b64 -S openat -F dir=/home -F success=1 -F auid>=1000 -F auid!=4294967295 -k user_home_access
+
+# Audit user access and changes to Audit logs 
+-w /var/log/audit/ -p rwxa -k auditlog_access
+-w /var/log/audit/audit.log -p rwxa -k audit_log_access
+
+# Audit permission denials (e.g., access denied due to lack of privileges)
+-a always,exit -F arch=b64 -S open,openat -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access_denied
+-a always,exit -F arch=b64 -S open,openat -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access_denied
+
+# Monitor user and group management commands
+-w /usr/sbin/useradd -p x -k user_account_changes
+-w /usr/sbin/usermod -p x -k user_account_changes
+-w /usr/sbin/userdel -p x -k user_account_changes
+-w /usr/sbin/groupadd -p x -k group_changes
+-w /usr/sbin/groupdel -p x -k group_changes
+-w /usr/sbin/groupmod -p x -k group_changes
+
+# Enhanced syscall-based tracking for user account changes
+-a always,exit -F path=/usr/sbin/useradd -F perm=x -F auid>=0 -F auid!=4294967295 -k user_account_changes
+-a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=0 -F auid!=4294967295 -k user_account_changes
+-a always,exit -F path=/usr/sbin/userdel -F perm=x -F auid>=0 -F auid!=4294967295 -k user_account_changes
+
+# Monitor auditd binary execution
+-w /sbin/auditd -p x -k auditd_control
+
+# Monitor audit configuration changes
+-w /etc/audit/auditd.conf -p wa -k auditd_config
+-w /etc/audit/rules.d/ -p wa -k auditd_rules
+-w /var/log/audit/ -p wa -k audit_log_changes
+-a always,exit -F arch=b64 -S init_module -S delete_module -k audit_module_changes
+-a always,exit -F arch=b64 -S auditctl -k audit_control
+-w /usr/sbin/auditd -p x -k auditd_start_stop
